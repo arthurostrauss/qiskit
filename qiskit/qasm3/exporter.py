@@ -1500,3 +1500,10 @@ class _ExprBuilder(expr.ExprVisitor[ast.Expression]):
 
     def visit_index(self, node, /):
         return ast.Index(node.target.accept(self), node.index.accept(self))
+
+    def visit_range(self, node, /):
+        return ast.Range(
+            start=node.start.accept(self),
+            end=node.stop.accept(self),
+            step=node.step.accept(self) if node.step is not None else None,
+        )
