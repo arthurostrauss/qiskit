@@ -376,3 +376,25 @@ class TestRange(QiskitTestCase):
         self.assertEqual(unpickled_var.step, range_expr_var.step)
         self.assertEqual(unpickled_var.type, range_expr_var.type)
         self.assertEqual(unpickled_var.const, range_expr_var.const)
+
+    def test_range_qasm3_export(self):
+        """Test that Range can be exported to OpenQASM3 via ForLoop."""
+        from qiskit.qasm3 import dumps
+
+        qc = QuantumCircuit(1, 1)
+
+        start_var = qc.add_var("start", expr.lift(0, types.Uint(8)))
+        stop_var = qc.add_var("stop", expr.lift(10, types.Uint(8)))
+        step_var = qc.add_var("step", expr.lift(2, types.Uint(8)))
+
+        range_expr = expr.Range(start_var, stop_var, step_var)
+
+        with qc.for_loop(range_expr):
+            qc.h(0)
+            qc.measure(0, 0)
+
+        qasm = dumps(qc)
+
+        # Verify the QASM output contains the expected range pattern
+        self.assertIn("for uint[8]", qasm)
+        self.assertIn("[start:step:stop]", qasm)

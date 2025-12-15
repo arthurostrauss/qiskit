@@ -1085,6 +1085,201 @@ c[1] = measure q[1];
         )
         self.assertEqual(dumps(qc), expected_qasm)
 
+    def test_for_loop_with_range_constant_values(self):
+        """Test that a for loop with Range and constant values outputs expected result."""
+        qc = QuantumCircuit(2, 1)
+        range_expr = expr.Range(expr.lift(0, types.Uint(8)), expr.lift(5, types.Uint(8)))
+
+        with qc.for_loop(range_expr):
+            qc.h(0)
+            qc.measure(0, 0)
+
+        qr_name = qc.qregs[0].name
+        cr_name = qc.cregs[0].name
+
+        expected_qasm = "\n".join(
+            [
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                f"bit[1] {cr_name};",
+                f"qubit[2] {qr_name};",
+                "for uint[8] _ in [0:1:5] {",
+                f"  h {qr_name}[0];",
+                f"  {cr_name}[0] = measure {qr_name}[0];",
+                "}",
+                "",
+            ]
+        )
+        self.assertEqual(dumps(qc), expected_qasm)
+
+    def test_for_loop_with_range_with_step(self):
+        """Test that a for loop with Range with step outputs expected result."""
+        qc = QuantumCircuit(2, 1)
+        range_expr = expr.Range(
+            expr.lift(0, types.Uint(8)),
+            expr.lift(10, types.Uint(8)),
+            expr.lift(2, types.Uint(8)),
+        )
+
+        with qc.for_loop(range_expr):
+            qc.h(0)
+            qc.measure(0, 0)
+
+        qr_name = qc.qregs[0].name
+        cr_name = qc.cregs[0].name
+
+        expected_qasm = "\n".join(
+            [
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                f"bit[1] {cr_name};",
+                f"qubit[2] {qr_name};",
+                "for uint[8] _ in [0:2:10] {",
+                f"  h {qr_name}[0];",
+                f"  {cr_name}[0] = measure {qr_name}[0];",
+                "}",
+                "",
+            ]
+        )
+        self.assertEqual(dumps(qc), expected_qasm)
+
+    def test_for_loop_with_range_dynamic_variables(self):
+        """Test that a for loop with Range and dynamic variables outputs expected result."""
+        qc = QuantumCircuit(1, 1)
+
+        start_var = qc.add_var("start", expr.lift(0, types.Uint(8)))
+        stop_var = qc.add_var("stop", expr.lift(10, types.Uint(8)))
+
+        range_expr = expr.Range(start_var, stop_var)
+
+        with qc.for_loop(range_expr):
+            qc.h(0)
+            qc.measure(0, 0)
+
+        qr_name = qc.qregs[0].name
+        cr_name = qc.cregs[0].name
+
+        expected_qasm = "\n".join(
+            [
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                f"bit[1] {cr_name};",
+                f"qubit[1] {qr_name};",
+                "uint[8] start;",
+                "uint[8] stop;",
+                "start = 0;",
+                "stop = 10;",
+                "for uint[8] _ in [start:1:stop] {",
+                f"  h {qr_name}[0];",
+                f"  {cr_name}[0] = measure {qr_name}[0];",
+                "}",
+                "",
+            ]
+        )
+        self.assertEqual(dumps(qc), expected_qasm)
+
+    def test_for_loop_with_range_all_dynamic_variables(self):
+        """Test that a for loop with Range where all values are dynamic variables."""
+        qc = QuantumCircuit(1, 1)
+
+        start_var = qc.add_var("start", expr.lift(0, types.Uint(16)))
+        stop_var = qc.add_var("stop", expr.lift(10, types.Uint(16)))
+        step_var = qc.add_var("step", expr.lift(2, types.Uint(16)))
+
+        range_expr = expr.Range(start_var, stop_var, step_var)
+
+        with qc.for_loop(range_expr):
+            qc.h(0)
+            qc.measure(0, 0)
+
+        qr_name = qc.qregs[0].name
+        cr_name = qc.cregs[0].name
+
+        expected_qasm = "\n".join(
+            [
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                f"bit[1] {cr_name};",
+                f"qubit[1] {qr_name};",
+                "uint[16] start;",
+                "uint[16] stop;",
+                "uint[16] step;",
+                "start = 0;",
+                "stop = 10;",
+                "step = 2;",
+                "for uint[16] _ in [start:step:stop] {",
+                f"  h {qr_name}[0];",
+                f"  {cr_name}[0] = measure {qr_name}[0];",
+                "}",
+                "",
+            ]
+        )
+        self.assertEqual(dumps(qc), expected_qasm)
+
+    def test_for_loop_with_range_expressions(self):
+        """Test that a for loop with Range containing expressions outputs expected result."""
+        qc = QuantumCircuit(1, 1)
+
+        n = qc.add_var("n", expr.lift(5, types.Uint(8)))
+
+        start_expr = expr.lift(0, types.Uint(8))
+        stop_expr = expr.shift_left(n, expr.lift(1, types.Uint(8)))
+
+        range_expr = expr.Range(start_expr, stop_expr)
+
+        with qc.for_loop(range_expr):
+            qc.h(0)
+
+        qr_name = qc.qregs[0].name
+
+        expected_qasm = "\n".join(
+            [
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                "bit[1] c;",
+                f"qubit[1] {qr_name};",
+                "uint[8] n;",
+                "n = 5;",
+                "for uint[8] _ in [0:1:n << 1] {",
+                f"  h {qr_name}[0];",
+                "}",
+                "",
+            ]
+        )
+        self.assertEqual(dumps(qc), expected_qasm)
+
+    def test_nested_for_loop_with_range(self):
+        """Test that nested for loops with Range work correctly."""
+        qc = QuantumCircuit(1)
+
+        outer_range = expr.Range(expr.lift(0, types.Uint(8)), expr.lift(3, types.Uint(8)))
+        inner_range = expr.Range(
+            expr.lift(0, types.Uint(8)),
+            expr.lift(2, types.Uint(8)),
+            expr.lift(1, types.Uint(8)),
+        )
+
+        with qc.for_loop(outer_range):
+            with qc.for_loop(inner_range):
+                qc.h(0)
+
+        qr_name = qc.qregs[0].name
+
+        expected_qasm = "\n".join(
+            [
+                "OPENQASM 3.0;",
+                'include "stdgates.inc";',
+                f"qubit[1] {qr_name};",
+                "for uint[8] _ in [0:1:3] {",
+                "  for uint[8] _ in [0:1:2] {",
+                f"    h {qr_name}[0];",
+                "  }",
+                "}",
+                "",
+            ]
+        )
+        self.assertEqual(dumps(qc), expected_qasm)
+
     def test_simple_while_loop(self):
         """Test that a simple while loop works correctly."""
         loop_body = QuantumCircuit(1)
