@@ -36,6 +36,7 @@ The expression system is based on tree representation.  All nodes in the tree ar
 (uninheritable) instances of the abstract base class:
 
 .. autoclass:: Expr
+    :members: accept, substitute
 
 These objects are mutable and should not be reused in a different location without a copy.
 
@@ -78,6 +79,12 @@ associated memory location (and so can be used as an lvalue for :class:`.Store`,
 target is also an lvalue.
 
 .. autoclass:: Index
+
+Loop bounds for :class:`.ForLoopOp` can be specified as expression trees using :class:`Range`,
+with ``start``, ``stop``, and ``step`` each represented as :class:`Expr` nodes.
+
+.. autoclass:: Range
+    :members: values
 
 When constructing expressions, one must ensure that the types are valid for the operation.
 Attempts to construct expressions with invalid types will raise a regular Python ``TypeError``.
@@ -207,6 +214,7 @@ __all__ = [
     "Expr",
     "ExprVisitor",
     "Index",
+    "Range",
     "Stretch",
     "Unary",
     "Value",
@@ -241,7 +249,7 @@ __all__ = [
     "sub",
 ]
 
-from .expr import Expr, Var, Value, Cast, Unary, Binary, Index, Stretch
+from .expr import Expr, Var, Value, Cast, Unary, Binary, Index, Stretch, Range
 from .visitors import ExprVisitor, iter_vars, iter_identifiers, structurally_equivalent, is_lvalue
 from .constructors import (
     lift,
