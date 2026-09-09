@@ -168,7 +168,12 @@ pub(crate) fn unpack_expression_value(
 ) -> Result<Value, QpyError> {
     let ty = unpack_expression_type(value_type_pack);
     if let ExpressionValueElementPack::Array(array_pack) = value_element_pack {
-        let Type::Array { size, .. } = ty else {
+        let Type::Array {
+            elem,
+            elem_width,
+            size,
+        } = ty
+        else {
             return Err(QpyError::DeserializationError(
                 "array EXPR_VALUE with a non-array EXPR_TYPE".to_string(),
             ));
@@ -179,9 +184,7 @@ pub(crate) fn unpack_expression_value(
                 array_pack.elems.len(),
             )));
         }
-        let elem_ty = ty
-            .array_element()
-            .expect("Type::Array always has an element type");
+        let elem_ty = Type::from_scalar(elem, elem_width);
         let mut elems = Vec::with_capacity(array_pack.elems.len());
         for pack in array_pack.elems {
             elems.push(unpack_scalar_value_element(elem_ty, pack)?);
