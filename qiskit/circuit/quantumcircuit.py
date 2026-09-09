@@ -3468,6 +3468,12 @@ class QuantumCircuit:
             and not isinstance(initial, bool)
         ):
             coerce_type = name_or_var.type
+        elif (
+            isinstance(name_or_var, expr.Var)
+            and name_or_var.type.kind is types.Array
+            and isinstance(initial, (list, tuple))
+        ):
+            coerce_type = name_or_var.type
         else:
             coerce_type = None
         initial = _validate_expr(circuit_scope, expr.lift(initial, coerce_type))
@@ -4477,11 +4483,15 @@ class QuantumCircuit:
             :meth:`add_var`
                 Create a new variable in the circuit that can be written to with this method.
         """
-        # As a convenience, lift integer-literal rvalues to the matching width.
+        # As a convenience, lift integer-literal rvalues to the matching width, and sequence
+        # rvalues to a matching array type.
         lvalue = expr.lift(lvalue)
-        rvalue_type = (
-            lvalue.type if isinstance(rvalue, int) and not isinstance(rvalue, bool) else None
-        )
+        if isinstance(rvalue, int) and not isinstance(rvalue, bool):
+            rvalue_type = lvalue.type
+        elif isinstance(rvalue, (list, tuple)) and lvalue.type.kind is types.Array:
+            rvalue_type = lvalue.type
+        else:
+            rvalue_type = None
         rvalue = expr.lift(rvalue, rvalue_type)
         return self.append(Store(lvalue, rvalue), (), (), copy=False)
 
@@ -7189,11 +7199,11 @@ class QuantumCircuit:
     def while_loop(
         self,
         condition: tuple[ClassicalRegister | Clbit, int] | expr.Expr,
-        body: None,
-        qubits: None,
-        clbits: None,
+        body: None = ...,
+        qubits: None = ...,
+        clbits: None = ...,
         *,
-        label: str | None,
+        label: str | None = ...,
     ) -> WhileLoopContext: ...
 
     @typing.overload
@@ -7204,7 +7214,7 @@ class QuantumCircuit:
         qubits: Sequence[QubitSpecifier],
         clbits: Sequence[ClbitSpecifier],
         *,
-        label: str | None,
+        label: str | None = ...,
     ) -> InstructionSet: ...
 
     def while_loop(self, condition, body=None, qubits=None, clbits=None, *, label=None):
@@ -7230,10 +7240,9 @@ class QuantumCircuit:
                 qc.measure(0, 0)
 
         Args:
-            condition (Tuple[Union[ClassicalRegister, Clbit], int]): An equality condition to be
-                checked prior to executing ``body``. The left-hand side of the condition must be a
-                :obj:`~ClassicalRegister` or a :obj:`~Clbit`, and the right-hand side must be an
-                integer or boolean.
+            condition (expr.Expr | Tuple[Union[ClassicalRegister, Clbit], int]): A condition to be
+                checked prior to executing ``body``.  Either an :class:`~.expr.Expr` of ``Bool()``
+                type, or the legacy two-tuple equality form ``(register_or_bit, value)``.
             body (Optional[QuantumCircuit]): The loop body to be repeatedly executed.  Omit this to
                 use the context-manager mode.
             qubits (Optional[Sequence[Qubit]]): The circuit qubits over which the loop body should
@@ -7274,12 +7283,12 @@ class QuantumCircuit:
     def for_loop(
         self,
         indexset: Iterable[int],
-        loop_parameter: Parameter | expr.Var | None,
-        body: None,
-        qubits: None,
-        clbits: None,
+        loop_parameter: Parameter | expr.Var | None = ...,
+        body: None = ...,
+        qubits: None = ...,
+        clbits: None = ...,
         *,
-        label: str | None,
+        label: str | None = ...,
     ) -> ForLoopContext: ...
 
     @typing.overload
@@ -7291,7 +7300,7 @@ class QuantumCircuit:
         qubits: Sequence[QubitSpecifier],
         clbits: Sequence[ClbitSpecifier],
         *,
-        label: str | None,
+        label: str | None = ...,
     ) -> InstructionSet: ...
 
     def for_loop(
@@ -7370,12 +7379,14 @@ class QuantumCircuit:
         )
 
     @typing.overload
-    def if_test(self, condition: tuple[ClassicalRegister | Clbit, int]) -> IfContext: ...
+    def if_test(
+        self, condition: tuple[ClassicalRegister | Clbit, int] | expr.Expr
+    ) -> IfContext: ...
 
     @typing.overload
     def if_test(
         self,
-        condition: tuple[ClassicalRegister | Clbit, int],
+        condition: tuple[ClassicalRegister | Clbit, int] | expr.Expr,
         true_body: QuantumCircuit,
         qubits: Sequence[QubitSpecifier],
         clbits: Sequence[ClbitSpecifier],
@@ -7424,11 +7435,10 @@ class QuantumCircuit:
                 qc.z(2)
 
         Args:
-            condition (Tuple[Union[ClassicalRegister, Clbit], int]): A condition to be evaluated in
-                real time during circuit execution, which, if true, will trigger the evaluation of
-                ``true_body``. Can be specified as either a tuple of a ``ClassicalRegister`` to be
-                tested for equality with a given ``int``, or as a tuple of a ``Clbit`` to be
-                compared to either a ``bool`` or an ``int``.
+            condition (expr.Expr | Tuple[Union[ClassicalRegister, Clbit], int]): A condition to be
+                evaluated in real time during circuit execution which, if true, will trigger the
+                evaluation of ``true_body``.  Either an :class:`~.expr.Expr` of ``Bool()`` type, or
+                the legacy two-tuple equality form ``(register_or_bit, value)``.
             true_body (Optional[QuantumCircuit]): The circuit body to be run if ``condition`` is
                 true.
             qubits (Optional[Sequence[QubitSpecifier]]): The circuit qubits over which the if/else
@@ -7473,7 +7483,9 @@ class QuantumCircuit:
 
     def if_else(
         self,
-        condition: tuple[ClassicalRegister, int] | tuple[Clbit, int] | tuple[Clbit, bool],
+        condition: (
+            tuple[ClassicalRegister, int] | tuple[Clbit, int] | tuple[Clbit, bool] | expr.Expr
+        ),
         true_body: QuantumCircuit,
         false_body: QuantumCircuit,
         qubits: Sequence[QubitSpecifier],
@@ -7500,11 +7512,10 @@ class QuantumCircuit:
                     qc.x(0)
 
         Args:
-            condition: A condition to be evaluated in real time at circuit execution, which,
-                if true, will trigger the evaluation of ``true_body``. Can be
-                specified as either a tuple of a ``ClassicalRegister`` to be
-                tested for equality with a given ``int``, or as a tuple of a
-                ``Clbit`` to be compared to either a ``bool`` or an ``int``.
+            condition: A condition to be evaluated in real time at circuit execution which, if
+                true, will trigger the evaluation of ``true_body``.  Either an
+                :class:`~.expr.Expr` of ``Bool()`` type, or the legacy two-tuple equality form
+                ``(register_or_bit, value)``.
             true_body: The circuit body to be run if ``condition`` is true.
             false_body: The circuit to be run if ``condition`` is false.
             qubits: The circuit qubits over which the if/else should be run.
@@ -7531,23 +7542,23 @@ class QuantumCircuit:
     @typing.overload
     def switch(
         self,
-        target: ClbitSpecifier | ClassicalRegister,
-        cases: None,
-        qubits: None,
-        clbits: None,
+        target: ClbitSpecifier | ClassicalRegister | expr.Expr,
+        cases: None = ...,
+        qubits: None = ...,
+        clbits: None = ...,
         *,
-        label: str | None,
+        label: str | None = ...,
     ) -> SwitchContext: ...
 
     @typing.overload
     def switch(
         self,
-        target: ClbitSpecifier | ClassicalRegister,
+        target: ClbitSpecifier | ClassicalRegister | expr.Expr,
         cases: Iterable[tuple[typing.Any, QuantumCircuit]],
         qubits: Sequence[QubitSpecifier],
         clbits: Sequence[ClbitSpecifier],
         *,
-        label: str | None,
+        label: str | None = ...,
     ) -> InstructionSet: ...
 
     def switch(self, target, cases=None, qubits=None, clbits=None, *, label=None):
@@ -7578,8 +7589,9 @@ class QuantumCircuit:
                     qc.cx(0, 1)
 
         Args:
-            target (Union[ClassicalRegister, Clbit]): The classical value to switch one.  This must
-                be integer-like.
+            target (expr.Expr | Union[ClassicalRegister, Clbit]): The classical value to switch on.
+                Either an :class:`~.expr.Expr` of ``Uint(n)`` or ``Bool()`` type, or a
+                :obj:`~ClassicalRegister` or :obj:`~Clbit`.
             cases (Iterable[Tuple[typing.Any, QuantumCircuit]]): A sequence of case specifiers.
                 Each tuple defines one case body (the second item).  The first item of the tuple can
                 be either a single integer value, the special value :data:`.CASE_DEFAULT`, or a
