@@ -332,11 +332,11 @@ pub(crate) fn write_expression<W: Write + Seek>(
                     },
                 ));
             }
-            ExpressionElementPack::Range(pack_expression_type(&range_node.ty)).write_options(
-                writer,
-                endian,
-                (),
-            )?;
+            ExpressionElementPack::Range(
+                pack_expression_type(&range_node.ty, qpy_data.version)
+                    .map_err(|e| to_binrw_error(writer, e))?,
+            )
+            .write_options(writer, endian, ())?;
             write_expression(&range_node.start, writer, endian, (qpy_data,))?;
             write_expression(&range_node.stop, writer, endian, (qpy_data,))?;
             write_expression(&range_node.step, writer, endian, (qpy_data,))?;
