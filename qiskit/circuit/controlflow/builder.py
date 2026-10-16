@@ -393,6 +393,7 @@ class ControlFlowBuilderBlock(CircuitScopeInterface):
             loop_var: If given, a classical :class:`~.expr.Var` used as the loop counter of an
                 enclosing :class:`.ForLoopOp`.  It is in scope within the body, and is emitted as
                 the body's single ``input`` variable rather than as a captured or declared local.
+                The scope may still capture outer variables and stretches.
             loop_var_explicit: Whether ``loop_var`` was supplied explicitly by the user.  An
                 explicit loop var is kept as a body input even if it is never referenced (mirroring
                 explicit :class:`~.Parameter` loop variables); an auto-generated one is dropped if

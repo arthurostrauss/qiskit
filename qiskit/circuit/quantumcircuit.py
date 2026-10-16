@@ -971,6 +971,11 @@ class QuantumCircuit(IR):
     .. automethod:: size
     .. automethod:: width
 
+    Comparing circuits
+    ------------------
+
+    .. automethod:: __eq__
+
     Accessing scheduling information
     --------------------------------
 
@@ -1612,6 +1617,56 @@ class QuantumCircuit(IR):
         return str(self.draw(output="text"))
 
     def __eq__(self, other) -> bool:
+        """Check if this circuit is equal to another circuit.
+
+        Equality is determined by comparing the :class:`.DAGCircuit` representation
+        of both circuits, delegating to :meth:`.DAGCircuit.__eq__`. This means that
+        the insertion order of independent operations does not affect equality, as
+        long as the dependency structure between operations is the same.
+
+        For example::
+
+            qc1 = QuantumCircuit(2)
+            qc1.x(0)
+            qc1.x(1)
+
+            qc2 = QuantumCircuit(2)
+            qc2.x(1)
+            qc2.x(0)
+
+            qc1 == qc2  # True, because x(0) and x(1) are independent
+
+        The following are considered when checking equality:
+
+        * DAG structure (gate names, parameters, and qubit dependencies)
+        * Quantum and classical registers
+        * Global phase (:attr:`global_phase`)
+        * Calibrations (:attr:`calibrations`)
+        * Variables (``Var`` nodes)
+
+        The following are **not** considered:
+
+        * Circuit name (:attr:`name`)
+        * Circuit metadata (:attr:`metadata`)
+
+        .. note::
+
+            This does **not** check whether two circuits implement the same unitary.
+            Two circuits with different gate structures may still be unitarily equivalent.
+            To check that, use :class:`.Operator`::
+
+                from qiskit.quantum_info import Operator
+                Operator(qc1) == Operator(qc2)
+
+        Args:
+            other: The object to compare against.
+
+        Returns:
+            bool: ``True`` if the circuits are equal, ``False`` otherwise.
+
+        See Also:
+            :meth:`.DAGCircuit.__eq__`: The underlying equality implementation.
+        """
         if not isinstance(other, QuantumCircuit):
             return False
 
@@ -2968,7 +3023,8 @@ class QuantumCircuit(IR):
                 _validate_expr(circuit_scope, operation.duration)
             # Verify that any variable bindings are valid.  Control-flow ops are already enforced
             # by the class not to contain 'input' variables, except for the loop variable of a
-            # `ForLoopOp`, which is bound by the loop itself rather than by this scope.
+            # `ForLoopOp`, which is bound by the loop itself rather than by this scope.  A for-loop
+            # body may still capture variables from this circuit in addition to that input.
             if bad_captures := {
                 var
                 for var in itertools.chain.from_iterable(
@@ -7658,6 +7714,11 @@ class QuantumCircuit(IR):
                 value of the ``with`` statement; an auto-generated loop variable that the body
                 never references is dropped.  An :class:`~.expr.Var` loop variable is input into
                 the body rather than declared or captured (see :class:`~.ForLoopOp`).
+
+                When this is an :class:`~.expr.Var`, the loop body takes it as its single ``input``
+                variable and may also capture variables or stretches from the enclosing circuit (for
+                example, an accumulator updated across iterations, or the loop variable of an outer
+                ``for`` loop).
 
                 If this argument is ``None`` in the manual form of this method, ``body`` will be
                 repeated once for each of the items in ``indexset`` but their values will be
