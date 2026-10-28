@@ -209,8 +209,8 @@ of QPY in qiskit-terra 0.18.0.
      - 13, 14, 15, 16, 17
      - 17
    * - 2.5.0
-     - 13, 14, 15, 16, 17, 18
-     - 18
+     - 13, 14, 15, 16, 17
+     - 17
    * - 2.4.1
      - 13, 14, 15, 16, 17
      - 17
@@ -610,6 +610,13 @@ QPY output was not deterministic.
 
 From version 18 the UUID suffix is replaced by a counter that is reset
 at the start of each :func:`.dump` call (e.g. ``"my_gate_0"``).
+
+.. note::
+
+    The array and :class:`~.expr.Range` encodings below are extensions of the
+    ``full_real_time_expr`` branch; they are not part of version 18 as released in Qiskit 2.6.0.
+    A file that uses them still declares version 18, so released Qiskit cannot load it, and fails
+    partway through the payload rather than on the version check.
 
 Changes to EXPR_TYPE
 ~~~~~~~~~~~~~~~~~~~~

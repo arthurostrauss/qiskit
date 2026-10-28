@@ -417,7 +417,8 @@ def logic_or(left: typing.Any, right: typing.Any, /) -> Expr:
 
 def _equal_like(op: Binary.Op, left: typing.Any, right: typing.Any) -> Expr:
     left, right = _lift_binary_operands(left, right)
-    if left.type.kind is not right.type.kind:
+    # OpenQASM 3 defines no comparison between whole arrays; compare elements instead.
+    if left.type.kind is not right.type.kind or left.type.kind is types.Array:
         raise TypeError(f"invalid types for '{op}': '{left.type}' and '{right.type}'")
     type = types.greater(left.type, right.type)
     # Note that we don't check the return value of _coerce_lossless for these
@@ -463,7 +464,7 @@ Uint(3))
 
 def _binary_relation(op: Binary.Op, left: typing.Any, right: typing.Any) -> Expr:
     left, right = _lift_binary_operands(left, right)
-    if left.type.kind is not right.type.kind or left.type.kind is types.Bool:
+    if left.type.kind is not right.type.kind or left.type.kind in (types.Bool, types.Array):
         raise TypeError(f"invalid types for '{op}': '{left.type}' and '{right.type}'")
     type = types.greater(left.type, right.type)
     # Note that we don't check the return value of _coerce_lossless for these
@@ -619,6 +620,9 @@ def index(target: typing.Any, index: typing.Any, /) -> Expr:
     has the array's element type.  This can be used as the target of a :class:`.Store`, if the
     ``target`` is itself an lvalue.
 
+    Raises:
+        IndexError: if ``target`` is an array and ``index`` is a constant outside its bounds.
+
     Examples:
         Index into a classical register with a literal::
 
@@ -633,6 +637,8 @@ def index(target: typing.Any, index: typing.Any, /) -> Expr:
     if target.type.kind is types.Uint:
         return Index(target, index, types.Bool())
     if target.type.kind is types.Array:
+        if isinstance(index, Value) and index.value >= target.type.size:
+            raise IndexError(f"index {index.value} is out of range for '{target.type}'")
         return Index(target, index, target.type.element)
     raise TypeError(f"invalid types for indexing: '{target.type}' and '{index.type}'")
 

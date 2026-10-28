@@ -46,16 +46,10 @@ impl Value {
                 let Some(elem_ty) = ty.array_element() else {
                     unreachable!("Type::Array always has an element type")
                 };
-                let mut elems = Vec::with_capacity(seq.len());
-                for item in seq {
-                    let inner = Self::from_py(&item, elem_ty)?;
-                    if matches!(inner, Value::Array { .. }) {
-                        return Err(PyTypeError::new_err(
-                            "nested arrays are not supported as Value elements",
-                        ));
-                    }
-                    elems.push(inner);
-                }
+                let elems = seq
+                    .iter()
+                    .map(|item| Self::element_from_py(item, elem_ty))
+                    .collect::<PyResult<Vec<_>>>()?;
                 Ok(Value::Array { elems, ty })
             }
             _ => {
@@ -67,6 +61,40 @@ impl Value {
                     Ok(Value::Duration(value.extract()?))
                 }
             }
+        }
+    }
+
+    /// Construct an array element, storing its payload as the element type dictates (so that,
+    /// for example, ``1`` in an ``Array(Float(), n)`` is held as the float ``1.0``).
+    fn element_from_py(value: &Bound<PyAny>, ty: Type) -> PyResult<Self> {
+        let mismatch = || {
+            PyTypeError::new_err(format!(
+                "array element '{}' is not a valid '{}'",
+                value,
+                format_type(ty)
+            ))
+        };
+        match ty {
+            Type::Float => Ok(Value::Float {
+                raw: value.extract().map_err(|_| mismatch())?,
+                ty,
+            }),
+            Type::Duration => Ok(Value::Duration(value.extract().map_err(|_| mismatch())?)),
+            Type::Bool | Type::Uint(_) => {
+                let raw: BigUint = value.extract().map_err(|_| mismatch())?;
+                let fits = match ty {
+                    Type::Bool => raw <= BigUint::from(1u8),
+                    Type::Uint(width) => raw.bits() <= u64::from(width),
+                    _ => unreachable!(),
+                };
+                if !fits {
+                    return Err(mismatch());
+                }
+                Ok(Value::Uint { raw, ty })
+            }
+            Type::Array { .. } => Err(PyTypeError::new_err(
+                "nested arrays are not supported as Value elements",
+            )),
         }
     }
 

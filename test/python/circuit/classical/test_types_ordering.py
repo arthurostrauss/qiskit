@@ -222,7 +222,8 @@ class TestArrayType(QiskitTestCase):
         self.assertNotEqual(a, types.Array(types.Uint(8), 3))
         self.assertNotEqual(types.Array(types.Uint(8), 3), types.Array(types.Uint(16), 3))
         self.assertNotEqual(a, types.Bool())
-        self.assertEqual(types.Array(types.Float(), 0).size, 0)
+        with self.assertRaisesRegex(ValueError, "must be positive"):
+            types.Array(types.Float(), 0)
         self.assertEqual(types.Array(types.Duration(), 2).element, types.Duration())
 
     def test_rejects_nested_array(self):

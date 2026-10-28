@@ -122,10 +122,6 @@ class TestExprConstructors(QiskitTestCase):
             expr.lift([1, 2], types.Array(types.Uint(8), 2)),
             expr.Value([1, 2], types.Array(types.Uint(8), 2)),
         )
-        self.assertEqual(
-            expr.lift([], types.Array(types.Bool(), 0)),
-            expr.Value([], types.Array(types.Bool(), 0)),
-        )
         self.assertEqual(expr.lift([True, False]), expr.lift((True, False)))
 
     def test_lift_array_forbidden(self):
@@ -668,6 +664,41 @@ class TestExprConstructors(QiskitTestCase):
         # Indexing a Bool array yields Bool, which cannot be indexed again.
         with self.assertRaisesRegex(TypeError, "invalid types"):
             expr.index(expr.index(flags, 0), 0)
+        # A constant index must lie within the array bounds.
+        with self.assertRaisesRegex(IndexError, "out of range"):
+            expr.index(flags, 3)
+        # A run-time index cannot be checked when the expression is built.
+        expr.index(flags, expr.Var.new("i", types.Uint(8)))
+
+    @ddt.data(
+        expr.equal,
+        expr.not_equal,
+        expr.less,
+        expr.less_equal,
+        expr.greater,
+        expr.greater_equal,
+    )
+    def test_array_comparison_forbidden(self, function):
+        # OpenQASM 3 defines no comparison between whole arrays.
+        left = expr.Var.new("left", types.Array(types.Uint(8), 2))
+        right = expr.Var.new("right", types.Array(types.Uint(8), 2))
+        with self.assertRaisesRegex(TypeError, "invalid types"):
+            function(left, right)
+        with self.assertRaisesRegex(TypeError, "invalid types"):
+            function(left, [1, 2])
+        # Comparing elements is the supported way.
+        self.assertEqual(function(expr.index(left, 0), expr.index(right, 0)).type, types.Bool())
+
+    def test_array_value_payload_follows_element_type(self):
+        floats = expr.Value([1, 2], types.Array(types.Float(), 2))
+        self.assertEqual(floats.value, [1.0, 2.0])
+        self.assertTrue(all(isinstance(value, float) for value in floats.value))
+        with self.assertRaisesRegex(TypeError, "not a valid 'Uint\\(2\\)'"):
+            expr.Value([1, 4], types.Array(types.Uint(2), 2))
+        with self.assertRaisesRegex(TypeError, "not a valid 'Uint\\(8\\)'"):
+            expr.Value([0.5, 1], types.Array(types.Uint(8), 2))
+        with self.assertRaisesRegex(TypeError, "not a valid 'Bool\\(\\)'"):
+            expr.Value([2, 0], types.Array(types.Bool(), 2))
 
     @ddt.data(
         (expr.shift_left, expr.Binary.Op.SHIFT_LEFT),

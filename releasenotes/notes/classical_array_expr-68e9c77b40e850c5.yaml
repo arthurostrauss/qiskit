@@ -16,10 +16,19 @@ features_circuits:
     :class:`~.types.Float`, and :class:`~.types.Duration`.  Nested arrays and
     slices are not included in this release.
 
+    Following OpenQASM 3, array sizes must be positive, and whole arrays cannot be
+    compared: :func:`~.expr.equal`, :func:`~.expr.less` and the other relations
+    raise :exc:`TypeError` for array operands (compare elements instead).
+    :func:`~.expr.index` raises :exc:`IndexError` for a constant index outside the
+    array, and the elements of an array :class:`~.expr.Value` are stored as the
+    element type (``Value([1, 2], Array(Float(), 2)).value == [1.0, 2.0]``).
+
     QPY version 18 serializes array-typed standalone variables and array
     literals.  Dumping a circuit that contains arrays to QPY 17 or earlier
     raises :exc:`~.qpy.UnsupportedFeatureForVersion`.
 
-    The OpenQASM 3 exporter emits ``array[<type>, <n>]`` declarations, and
-    groups an unbound :class:`.ParameterVector` into a single
-    ``input array[float[64], N]`` rather than ``N`` scalar inputs.
+    The OpenQASM 3 exporter emits ``array[<type>, <n>]`` declarations.  With the
+    new :attr:`.ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS` flag, it also
+    groups an unbound :class:`.ParameterVector` into a single full-length
+    ``input array[float[64], N]`` rather than one scalar input per used element.
+    Without the flag, vectors export as scalar inputs, as in released Qiskit.

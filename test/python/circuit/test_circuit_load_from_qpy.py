@@ -2309,17 +2309,6 @@ class TestLoadFromQPY(QiskitTestCase):
         self.assertEqual(new_qc.get_var("words").type, types.Array(types.Uint(2), 3))
         self.assertEqual(new_qc.get_var("delays").type, types.Array(types.Duration(), 2))
 
-    def test_empty_array_var_roundtrip(self):
-        """Zero-length arrays are legal and must roundtrip."""
-        qc = QuantumCircuit()
-        qc.add_uninitialized_var(expr.Var.new("empty", types.Array(types.Bool(), 0)))
-        with io.BytesIO() as fptr:
-            dump(qc, fptr)
-            fptr.seek(0)
-            new_qc = load(fptr)[0]
-        self.assertMinimalVarEqual(qc, new_qc)
-        self.assertEqual(new_qc.get_var("empty").type, types.Array(types.Bool(), 0))
-
     @ddt.idata(range(QPY_COMPATIBILITY_VERSION, 18))
     def test_pre_v18_rejects_array_typed_expr(self, version):
         """Test that dumping to older QPY versions rejects array-typed expressions."""

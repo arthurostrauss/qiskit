@@ -377,8 +377,9 @@ impl PyArray {
     #[new]
     #[pyo3(text_signature = "(element, size)")]
     fn py_new(py: Python, element: Bound<PyAny>, size: i64) -> PyResult<Py<Self>> {
-        if size < 0 {
-            return Err(PyValueError::new_err("array size must be non-negative"));
+        if size < 1 {
+            // OpenQASM 3 array dimensions are positive integers.
+            return Err(PyValueError::new_err("array size must be positive"));
         }
         if size > u32::MAX as i64 {
             return Err(PyValueError::new_err("array size is too large"));

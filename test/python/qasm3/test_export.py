@@ -459,7 +459,9 @@ class TestCircuitQASM3(QiskitTestCase):
         expected = """\
 OPENQASM 3.0;
 include "stdgates.inc";
-input array[float[64], 3] t_0;
+input float[64] _t_0_;
+input float[64] _t_1_;
+input float[64] _t_2_;
 gate rxx(p0) _gate_q_0, _gate_q_1 {
   h _gate_q_0;
   h _gate_q_1;
@@ -486,7 +488,7 @@ gate ryy(p0) _gate_q_0, _gate_q_1 {
   sx _gate_q_0;
   sx _gate_q_1;
 }
-gate PauliEvolution_1(_t_1_) _gate_q_0, _gate_q_1 {
+gate PauliEvolution_0(_t_1_) _gate_q_0, _gate_q_1 {
   ryy(2*_t_1_) _gate_q_0, _gate_q_1;
 }
 gate rzz(p0) _gate_q_0, _gate_q_1 {
@@ -494,13 +496,13 @@ gate rzz(p0) _gate_q_0, _gate_q_1 {
   rz(p0) _gate_q_1;
   cx _gate_q_0, _gate_q_1;
 }
-gate PauliEvolution_2(_t_2_) _gate_q_0, _gate_q_1 {
+gate PauliEvolution_1(_t_2_) _gate_q_0, _gate_q_1 {
   rzz(2*_t_2_) _gate_q_0, _gate_q_1;
 }
 qubit[2] q;
-PauliEvolution(t_0[0]) q[0], q[1];
-PauliEvolution_1(t_0[1]) q[0], q[1];
-PauliEvolution_2(t_0[2]) q[0], q[1];
+PauliEvolution(_t_0_) q[0], q[1];
+PauliEvolution_0(_t_1_) q[0], q[1];
+PauliEvolution_1(_t_2_) q[0], q[1];
 """
         self.assertEqual(dumps(qc), expected)
 
@@ -2174,7 +2176,9 @@ ry(theta[1]) q[0];
 rz(theta[2]) q[0];
 p(extra) q[0];
 """
-        self.assertEqual(dumps(qc), expected)
+        self.assertEqual(
+            dumps(qc, experimental=ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS), expected
+        )
 
     def test_parameter_vector_declares_full_size(self):
         theta = ParameterVector("theta", 4)
@@ -2187,7 +2191,44 @@ input array[float[64], 4] theta;
 qubit[1] q;
 rx(theta[0]) q[0];
 """
+        self.assertEqual(
+            dumps(qc, experimental=ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS), expected
+        )
+
+    def test_parameter_vector_default_is_scalar_inputs(self):
+        """Without the experimental flag, each used element is its own scalar input."""
+        theta = ParameterVector("theta", 4)
+        qc = QuantumCircuit(1)
+        qc.rx(theta[0], 0)
+        qc.rx(theta[2], 0)
+        expected = """\
+OPENQASM 3.0;
+include "stdgates.inc";
+input float[64] _theta_0_;
+input float[64] _theta_2_;
+qubit[1] q;
+rx(_theta_0_) q[0];
+rx(_theta_2_) q[0];
+"""
         self.assertEqual(dumps(qc), expected)
+
+    def test_parameter_vector_array_renamed_on_collision(self):
+        """A vector array named like a gate is renamed, and its elements follow the new name."""
+        x = ParameterVector("x", 2)
+        qc = QuantumCircuit(1)
+        qc.rx(x[1], 0)
+        qc.x(0)
+        expected = """\
+OPENQASM 3.0;
+include "stdgates.inc";
+input array[float[64], 2] x_0;
+qubit[1] q;
+rx(x_0[1]) q[0];
+x q[0];
+"""
+        self.assertEqual(
+            dumps(qc, experimental=ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS), expected
+        )
 
     def test_qasm_stretch_example_1(self):
         """Test an example from the OpenQASM docs."""

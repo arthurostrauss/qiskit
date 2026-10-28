@@ -68,3 +68,23 @@ class ExperimentalFeatures(enum.Flag):
             }
         }
     """
+
+    PARAMETER_VECTORS_AS_ARRAYS = enum.auto()
+    """Export each unbound :class:`.ParameterVector` as a single full-length ``input`` array
+    rather than one scalar ``input`` per used element.
+
+    With this flag, a circuit using ``theta[0]`` and ``theta[2]`` of a three-element vector
+    ``theta`` exports as:
+
+    .. code-block::
+
+        input array[float[64], 3] theta;
+        rx(theta[0]) $0;
+        rx(theta[2]) $0;
+
+    Every element is declared, whether or not the circuit uses it.  The array keeps the vector's
+    name unless that name collides with another symbol (for example a gate called ``x``), in which
+    case it is renamed like any other identifier.  Without this flag, each used element is its own
+    scalar ``input float[64]``, which the Qiskit OpenQASM 3 importer can read back; it cannot read
+    ``input`` arrays.
+    """

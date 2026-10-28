@@ -913,9 +913,10 @@ class QASM3Builder:
         as an input variable."""
         self.assert_global_scope()
         circuit = self.scope.circuit
+        vectors_as_arrays = ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS in self.experimental
         emitted_vectors = set()
         for parameter in circuit.parameters:
-            if isinstance(parameter, ParameterVectorElement):
+            if vectors_as_arrays and isinstance(parameter, ParameterVectorElement):
                 vector = parameter.vector
                 if vector.uuid in emitted_vectors:
                     continue
