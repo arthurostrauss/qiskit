@@ -23,9 +23,11 @@ features_circuits:
     array, and the elements of an array :class:`~.expr.Value` are stored as the
     element type (``Value([1, 2], Array(Float(), 2)).value == [1.0, 2.0]``).
 
-    QPY version 18 serializes array-typed standalone variables and array
-    literals.  Dumping a circuit that contains arrays to QPY 17 or earlier
-    raises :exc:`~.qpy.UnsupportedFeatureForVersion`.
+    QPY serializes array-typed standalone variables and array literals in the
+    branch's format version :data:`~.qpy.QPY_FORK_VERSION` (200), which
+    :func:`~.qpy.dump` selects automatically for such a payload.  Dumping one with
+    an explicit standard version (up to 18) raises
+    :exc:`~.qpy.UnsupportedFeatureForVersion`.
 
     The OpenQASM 3 exporter emits ``array[<type>, <n>]`` declarations.  With the
     new :attr:`.ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS` flag, it also

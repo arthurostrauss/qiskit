@@ -74,6 +74,7 @@ from qiskit.qpy import (
     load,
     UnsupportedFeatureForVersion,
     QPY_COMPATIBILITY_VERSION,
+    QPY_FORK_VERSION,
     QPY_VERSION,
     QpyError,
 )
@@ -2309,16 +2310,45 @@ class TestLoadFromQPY(QiskitTestCase):
         self.assertEqual(new_qc.get_var("words").type, types.Array(types.Uint(2), 3))
         self.assertEqual(new_qc.get_var("delays").type, types.Array(types.Duration(), 2))
 
-    @ddt.idata(range(QPY_COMPATIBILITY_VERSION, 18))
-    def test_pre_v18_rejects_array_typed_expr(self, version):
-        """Test that dumping to older QPY versions rejects array-typed expressions."""
+    @ddt.idata(range(QPY_COMPATIBILITY_VERSION, QPY_VERSION + 1))
+    def test_standard_versions_reject_array_typed_expr(self, version):
+        """Array-typed expressions are written only in the fork QPY version."""
         qc = QuantumCircuit()
         qc.add_var("flags", [True, False])
         with (
             io.BytesIO() as fptr,
-            self.assertRaisesRegex(UnsupportedFeatureForVersion, "version 18 is required.*array"),
+            self.assertRaisesRegex(
+                UnsupportedFeatureForVersion, f"version {QPY_FORK_VERSION} is required.*array"
+            ),
         ):
             dump(qc, fptr, version=version)
+
+    def test_array_payload_selects_fork_version(self):
+        """By default, a payload with arrays is written as the fork version; others are not."""
+        with_array = QuantumCircuit()
+        with_array.add_var("flags", [True, False])
+        plain = QuantumCircuit(1)
+        plain.h(0)
+        for circuits, expected in (([plain], QPY_VERSION), ([plain, with_array], QPY_FORK_VERSION)):
+            with io.BytesIO() as fptr:
+                dump(circuits, fptr)
+                self.assertEqual(fptr.getvalue()[6], expected)
+                fptr.seek(0)
+                self.assertEqual(load(fptr), circuits)
+        with io.BytesIO() as fptr:
+            dump(with_array, fptr, version=QPY_FORK_VERSION)
+            fptr.seek(0)
+            self.assertEqual(load(fptr)[0], with_array)
+
+    def test_load_branch_payload_written_as_version_18(self):
+        """Earlier builds of the branch wrote arrays under version 18; such files still load."""
+        qc = QuantumCircuit()
+        qc.add_var("flags", [True, False])
+        with io.BytesIO() as fptr:
+            dump(qc, fptr, version=QPY_FORK_VERSION)
+            payload = bytearray(fptr.getvalue())
+        payload[6] = 18
+        self.assertEqual(load(io.BytesIO(bytes(payload)))[0], qc)
 
     @ddt.idata(range(QPY_COMPATIBILITY_VERSION, 14))
     def test_pre_v14_rejects_stretch_expr(self, version):

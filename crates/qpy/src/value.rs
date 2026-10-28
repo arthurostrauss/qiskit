@@ -32,6 +32,7 @@ use qiskit_circuit::parameter::parameter_expression::ParameterExpression;
 use qiskit_circuit::parameter::symbol_expr::{Symbol, SymbolVector};
 use qiskit_circuit::{Clbit, imports};
 
+use crate::QPY_FORK_VERSION;
 use crate::annotations::AnnotationHandler;
 use crate::bytes::Bytes;
 use crate::circuit_reader::unpack_circuit;
@@ -930,11 +931,11 @@ pub(crate) fn serialize_generic_value(
             (ValueType::Modifier, serialize(&packed_modifier)?)
         }
         GenericValue::RangeExpr(range_expr) => {
-            if qpy_data.version < 18 {
+            if qpy_data.version < QPY_FORK_VERSION {
                 return Err(QpyError::UnsupportedFeatureForVersion {
                     feature: "classical expr.Range".to_string(),
-                    version: 18,
-                    min_version: qpy_data.version,
+                    version: qpy_data.version,
+                    min_version: QPY_FORK_VERSION,
                 });
             }
             // Serialize Range expression as an Expression
@@ -1198,7 +1199,7 @@ fn pack_expression_type(exp_type: &Type, version: u8) -> Result<ExpressionType, 
             elem_width,
             size,
         } => {
-            if version >= 18 {
+            if version >= QPY_FORK_VERSION {
                 Ok(ExpressionType::Array(ArrayTypePack::from_parts(
                     *elem,
                     *elem_width,
@@ -1208,7 +1209,7 @@ fn pack_expression_type(exp_type: &Type, version: u8) -> Result<ExpressionType, 
                 Err(QpyError::UnsupportedFeatureForVersion {
                     feature: "array-typed expressions".to_string(),
                     version,
-                    min_version: 18,
+                    min_version: QPY_FORK_VERSION,
                 })
             }
         }

@@ -11,6 +11,7 @@
 // that they have been altered from the originals.
 
 // methods for serialization/deserialization of Expression
+use crate::QPY_FORK_VERSION;
 use crate::error::{QpyError, to_binrw_error};
 use crate::formats::{
     ArrayValuePack, ExpressionElementPack, ExpressionTypePack, ExpressionValueElementPack,
@@ -41,11 +42,11 @@ pub(crate) fn pack_expression_type(ty: &Type, version: u8) -> Result<ExpressionT
             elem_width,
             size,
         } => {
-            if version < 18 {
+            if version < QPY_FORK_VERSION {
                 return Err(QpyError::UnsupportedFeatureForVersion {
                     feature: "array-typed expressions".to_string(),
                     version,
-                    min_version: 18,
+                    min_version: QPY_FORK_VERSION,
                 });
             }
             Ok(ExpressionTypePack::Array(ArrayTypePack::from_parts(
@@ -125,11 +126,11 @@ pub(crate) fn pack_expression_value(
 ) -> Result<ExpressionElementPack, QpyError> {
     let (ty, value_pack) = match value {
         Value::Array { elems, ty } => {
-            if qpy_data.version < 18 {
+            if qpy_data.version < QPY_FORK_VERSION {
                 return Err(QpyError::UnsupportedFeatureForVersion {
                     feature: "array-typed expressions".to_string(),
                     version: qpy_data.version,
-                    min_version: 18,
+                    min_version: QPY_FORK_VERSION,
                 });
             }
             let packed_elems = elems
@@ -322,13 +323,13 @@ pub(crate) fn write_expression<W: Write + Seek>(
             write_expression(&binary_node.right, writer, endian, (qpy_data,))?;
         }
         Expr::Range(range_node) => {
-            if qpy_data.version < 18 {
+            if qpy_data.version < QPY_FORK_VERSION {
                 return Err(to_binrw_error(
                     writer,
                     QpyError::UnsupportedFeatureForVersion {
                         feature: "classical expr.Range".to_string(),
-                        version: 18,
-                        min_version: qpy_data.version,
+                        version: qpy_data.version,
+                        min_version: QPY_FORK_VERSION,
                     },
                 ));
             }
@@ -431,13 +432,15 @@ pub(crate) fn read_expression<R: Read + Seek>(
             })))
         }
         ExpressionElementPack::Range(range_type_pack) => {
+            // Version 18 is still read: the branch wrote these extensions as 18 before it had its
+            // own format version.
             if qpy_data.version < 18 {
                 return Err(to_binrw_error(
                     reader,
                     QpyError::UnsupportedFeatureForVersion {
                         feature: "classical expr.Range".to_string(),
-                        version: 18,
-                        min_version: qpy_data.version,
+                        version: qpy_data.version,
+                        min_version: 18,
                     },
                 ));
             }

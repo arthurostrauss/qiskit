@@ -28,7 +28,7 @@ import re
 from qiskit.circuit import QuantumCircuit
 from qiskit.exceptions import QiskitError
 from qiskit.qpy import formats, common, binary_io, type_keys
-from qiskit.qpy.exceptions import QpyError
+from qiskit.qpy.exceptions import QpyError, UnsupportedFeatureForVersion
 from qiskit import user_config
 from qiskit.version import __version__
 from qiskit._accelerate import qpy as _qpy
@@ -92,7 +92,7 @@ def dump(
     file_obj: BinaryIO,
     metadata_serializer: type[JSONEncoder] | None = None,
     use_symengine: bool = False,
-    version: int = common.QPY_VERSION,
+    version: int | None = None,
     annotation_factories: Mapping[str, Callable[[], annotation.QPYSerializer]] | None = None,
 ):
     """Write QPY binary data to a file
@@ -153,6 +153,12 @@ def dump(
             minimum compatible version with :attr:`.qpy.QPY_VERSION` and
             :attr:`.qpy.QPY_COMPATIBILITY_VERSION` respectively.
 
+            By default, a payload that uses the ``full_real_time_expr`` branch's classical arrays
+            or :class:`~.expr.Range` is written as format version ``QPY_FORK_VERSION`` (200)
+            instead: version 18 plus those encodings, which released Qiskit rejects at its version
+            check. Pass ``version=QPY_FORK_VERSION`` to request it explicitly; passing
+            ``version=18`` raises :exc:`.UnsupportedFeatureForVersion` for such a payload.
+
             .. note::
 
                 If specified with an older version of QPY the limitations and potential bugs stemming
@@ -177,24 +183,35 @@ def dump(
         if not issubclass(type(program), QuantumCircuit):
             raise TypeError(f"'{type(program)}' is not a supported data type.")
 
+    automatic_version = version is None
     if version is None:
         version = common.QPY_VERSION
-    elif common.QPY_COMPATIBILITY_VERSION > version or version > common.QPY_VERSION:
+    elif version != common.QPY_FORK_VERSION and (
+        common.QPY_COMPATIBILITY_VERSION > version or version > common.QPY_VERSION
+    ):
         raise ValueError(
             f"Dumping payloads with the specified QPY version ({version}) is not supported by "
             f"this version of Qiskit. Try selecting a version between "
-            f"{common.QPY_COMPATIBILITY_VERSION} and {common.QPY_VERSION} for `qpy.dump`."
+            f"{common.QPY_COMPATIBILITY_VERSION} and {common.QPY_VERSION}, or "
+            f"{common.QPY_FORK_VERSION} for the full_real_time_expr extensions, for `qpy.dump`."
         )
 
     use_rust = version >= common.QPY_RUST_WRITE_MIN_VERSION
     if use_rust:
-        _qpy.dump(
-            programs,
-            file_obj,
-            metadata_serializer,
-            version,
-            annotation_factories,
-        )
+        try:
+            _qpy.dump(programs, file_obj, metadata_serializer, version, annotation_factories)
+        except UnsupportedFeatureForVersion as exc:
+            # The Rust writer only writes to `file_obj` once the whole payload is built, so
+            # nothing has been written yet.
+            if not automatic_version or exc.required != common.QPY_FORK_VERSION:
+                raise
+            _qpy.dump(
+                programs,
+                file_obj,
+                metadata_serializer,
+                common.QPY_FORK_VERSION,
+                annotation_factories,
+            )
         return
 
     version_match = VERSION_PATTERN_REGEX.search(__version__)
@@ -337,7 +354,7 @@ def load(
     version = struct.unpack("!6sB", file_obj.read(7))[1]
     file_obj.seek(0)
 
-    if version > common.QPY_VERSION:
+    if version > common.QPY_VERSION and version != common.QPY_FORK_VERSION:
         raise QiskitError(
             f"The QPY format version being read, {version}, isn't supported by "
             "this Qiskit version. Please upgrade your version of Qiskit to load this QPY payload"

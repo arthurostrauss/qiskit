@@ -125,6 +125,13 @@ Attributes:
         will be able to load all released format versions of QPY (up until
         ``QPY_VERSION``).
 
+    QPY_FORK_VERSION (int): The format version (200) of payloads that use the
+        ``full_real_time_expr`` branch's extensions: classical arrays and
+        :class:`~.expr.Range`.  It is version 18 plus those encodings, numbered far
+        above any released version so that released Qiskit rejects such a payload at
+        its version check.  :func:`.qpy.dump` selects it automatically for a payload
+        that needs it, unless ``version`` is given.
+
 .. _qpy_compatibility:
 
 QPY Compatibility
@@ -615,8 +622,9 @@ at the start of each :func:`.dump` call (e.g. ``"my_gate_0"``).
 
     The array and :class:`~.expr.Range` encodings below are extensions of the
     ``full_real_time_expr`` branch; they are not part of version 18 as released in Qiskit 2.6.0.
-    A file that uses them still declares version 18, so released Qiskit cannot load it, and fails
-    partway through the payload rather than on the version check.
+    They are only written in payloads of format version ``QPY_FORK_VERSION`` (200), which is
+    version 18 plus these encodings, so released Qiskit rejects such a payload at its version
+    check.  Earlier builds of the branch wrote them under version 18; those files still load.
 
 Changes to EXPR_TYPE
 ~~~~~~~~~~~~~~~~~~~~
@@ -632,7 +640,7 @@ Qiskit class               Type code  Payload
 =========================  =========  ==============================================================
 
 Nested arrays are not represented.  Dumping a circuit that contains an array-typed expression
-to QPY version 17 or earlier raises :exc:`.UnsupportedFeatureForVersion`.
+with any version other than ``QPY_FORK_VERSION`` raises :exc:`.UnsupportedFeatureForVersion`.
 
 Changes to EXPR_VALUE
 ~~~~~~~~~~~~~~~~~~~~~
@@ -655,8 +663,8 @@ A new classical-expression discriminator ``RANGE`` (type key ``r``) represents a
 :class:`~.expr.Range` with start, stop, and step sub-expressions. This is used when a
 :class:`.ForLoopOp` indexset is an :class:`~.expr.Range` (serialized as a
 ``Value.EXPRESSION`` instruction parameter whose payload contains ``RANGE`` nodes).
-QPY format versions below 18 cannot read or write this element; attempting to
-serialize a circuit that contains one with ``version < 18`` raises
+Only ``QPY_FORK_VERSION`` payloads write this element (versions below 18 cannot read it);
+attempting to serialize a circuit that contains one with any other version raises
 :exc:`~.UnsupportedFeatureForVersion`.
 
 ForLoopOp runtime loop variable
@@ -2478,10 +2486,11 @@ from .binary_io import (
 
 # ruff: enable[F401]
 
-from .common import QPY_VERSION, QPY_COMPATIBILITY_VERSION
+from .common import QPY_VERSION, QPY_COMPATIBILITY_VERSION, QPY_FORK_VERSION
 
 __all__ = [
     "QPY_COMPATIBILITY_VERSION",
+    "QPY_FORK_VERSION",
     "QPY_VERSION",
     "QPYLoadingDeprecatedFeatureWarning",
     "QpyError",

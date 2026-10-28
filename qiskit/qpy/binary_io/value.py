@@ -336,9 +336,9 @@ class _ExprWriter(expr.ExprVisitor[None]):
         node.index.accept(self)
 
     def visit_range(self, node, /):
-        if self.version < 18:
+        if self.version < common.QPY_FORK_VERSION:
             raise exceptions.UnsupportedFeatureForVersion(
-                "classical expr.Range", required=18, target=self.version
+                "classical expr.Range", required=common.QPY_FORK_VERSION, target=self.version
             )
         self.file_obj.write(type_keys.Expression.RANGE)
         self._write_expr_type(node.type)
@@ -360,9 +360,9 @@ def _write_expr(
 def _write_expr_value_payload(file_obj, value, type_: types.Type, version: int):
     """Write an ``EXPR_VALUE`` discriminator and payload (not the enclosing ``EXPRESSION``)."""
     if type_.kind is types.Array:
-        if version < 18:
+        if version < common.QPY_FORK_VERSION:
             raise exceptions.UnsupportedFeatureForVersion(
-                "array-typed expressions", required=18, target=version
+                "array-typed expressions", required=common.QPY_FORK_VERSION, target=version
             )
         if not isinstance(value, (list, tuple)):
             raise exceptions.QpyError(f"unhandled array Value object '{value}'")
@@ -424,9 +424,9 @@ def _write_expr_type(file_obj, type_: types.Type, version: int):
             )
         file_obj.write(type_keys.ExprType.DURATION)
     elif type_.kind is types.Array:
-        if version < 18:
+        if version < common.QPY_FORK_VERSION:
             raise exceptions.UnsupportedFeatureForVersion(
-                "array-typed expressions", required=18, target=version
+                "array-typed expressions", required=common.QPY_FORK_VERSION, target=version
             )
         file_obj.write(type_keys.ExprType.ARRAY)
         _write_expr_type(file_obj, type_.element, version)

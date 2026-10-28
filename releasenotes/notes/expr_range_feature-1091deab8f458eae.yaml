@@ -129,13 +129,15 @@ features_transpiler:
 
 features_qpy:
   - |
-    QPY format version 18 adds support for serializing
-    :class:`~qiskit.circuit.classical.expr.Range` for-loop indexsets. A new
-    classical-expression ``RANGE`` discriminator (type key ``r``) encodes ``start``,
-    ``stop``, and ``step`` sub-expressions when the indexset is an
-    :class:`~qiskit.circuit.classical.expr.Range`. QPY format version 18 is required
-    to serialize or deserialize this element; older target versions raise
-    :exc:`~qiskit.qpy.UnsupportedFeatureForVersion` when dumping circuits that use it.
+    QPY serializes :class:`~qiskit.circuit.classical.expr.Range` for-loop indexsets
+    in the branch's format version :data:`~qiskit.qpy.QPY_FORK_VERSION` (200): version
+    18 plus the branch's extensions, numbered far above any release so that released
+    Qiskit rejects such a payload at its version check.  A new classical-expression
+    ``RANGE`` discriminator (type key ``r``) encodes ``start``, ``stop``, and ``step``
+    sub-expressions.  :func:`~qiskit.qpy.dump` selects the fork version automatically
+    for a payload that needs it; an explicit other ``version`` raises
+    :exc:`~qiskit.qpy.UnsupportedFeatureForVersion`.  Payloads that earlier builds of
+    the branch wrote under version 18 still load.
 
     A runtime :class:`~qiskit.circuit.classical.expr.Var` used as a
     :class:`~qiskit.circuit.ForLoopOp` loop parameter round-trips without any

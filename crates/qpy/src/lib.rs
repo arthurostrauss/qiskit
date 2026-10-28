@@ -39,6 +39,11 @@ pub const QPY_READ_MIN_VERSION: u8 = 13;
 
 /// The oldest QPY format version that the Rust QPY implementation can write.
 pub const QPY_WRITE_MIN_VERSION: u8 = 17;
+/// The format version written for payloads that use extensions of the `full_real_time_expr`
+/// branch (classical arrays and `expr.Range`). It is far above any released version, so released
+/// Qiskit rejects such a payload at its version check instead of failing partway through it.
+/// It contains every feature of version 18; reconcile it when merging a newer upstream version.
+pub const QPY_FORK_VERSION: u8 = 200;
 
 /// Internal module supplying the QPY capabilities.  The entries in it should largely
 /// be re-exposed directly to public Python space.

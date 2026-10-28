@@ -24,6 +24,9 @@ from qiskit.utils.optionals import HAS_SYMENGINE
 from qiskit.qpy import formats, exceptions
 
 QPY_VERSION = 18
+QPY_FORK_VERSION = 200
+"""Format version for payloads using the ``full_real_time_expr`` branch's extensions (classical
+arrays and ``expr.Range``): version 18 plus those encodings, numbered far above any release."""
 QPY_COMPATIBILITY_VERSION = 13
 QPY_RUST_READ_MIN_VERSION = 13
 QPY_RUST_WRITE_MIN_VERSION = 17
