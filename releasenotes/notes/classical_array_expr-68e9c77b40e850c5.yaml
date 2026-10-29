@@ -29,7 +29,12 @@ features_circuits:
     an explicit standard version (up to 18) raises
     :exc:`~.qpy.UnsupportedFeatureForVersion`.
 
-    The OpenQASM 3 exporter emits ``array[<type>, <n>]`` declarations.  With the
+    The OpenQASM 3 exporter emits ``array[<type>, <n>]`` declarations, always in the
+    global scope as OpenQASM 3 requires: an array local to a control-flow body is
+    declared globally and initialized where it was declared.  Array literals are only
+    exported as declaration initializers (whole-array stores are lowered element by
+    element); an array literal used inside an expression, such as
+    ``expr.index([1, 2, 3], i)``, raises :exc:`.QASM3ExporterError`.  With the
     new :attr:`.ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS` flag, it also
     groups an unbound :class:`.ParameterVector` into a single full-length
     ``input array[float[64], N]`` rather than one scalar input per used element.

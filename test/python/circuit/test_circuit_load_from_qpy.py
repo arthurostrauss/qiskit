@@ -2340,6 +2340,23 @@ class TestLoadFromQPY(QiskitTestCase):
             fptr.seek(0)
             self.assertEqual(load(fptr)[0], with_array)
 
+    def test_array_only_inside_expression_selects_fork_version(self):
+        """An array literal used only inside an expression (no array variable) is detected too."""
+        qc = QuantumCircuit(1, 1)
+        u = qc.add_var(expr.Var.new("u", types.Uint(2)), 0)
+        with qc.if_test(expr.equal(expr.index([1, 2, 3], u), 2)):
+            qc.x(0)
+        with io.BytesIO() as fptr:
+            dump(qc, fptr)
+            self.assertEqual(fptr.getvalue()[6], QPY_FORK_VERSION)
+            fptr.seek(0)
+            self.assertEqual(load(fptr)[0], qc)
+        with (
+            io.BytesIO() as fptr,
+            self.assertRaisesRegex(UnsupportedFeatureForVersion, "array-typed expressions"),
+        ):
+            dump(qc, fptr, version=QPY_VERSION)
+
     def test_load_branch_payload_written_as_version_18(self):
         """Earlier builds of the branch wrote arrays under version 18; such files still load."""
         qc = QuantumCircuit()

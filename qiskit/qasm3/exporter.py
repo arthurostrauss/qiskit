@@ -1110,21 +1110,37 @@ class QASM3Builder:
         # easier to see the def/use chain needed to do this cleanly if we were using `DAGCircuit`.)
         # Constant array-literal initializers are an exception: OpenQASM 3 allows
         # `array[T, N] name = {…};` at declaration, and mid-program brace assignment is not portable.
+        # OpenQASM 3 only allows arrays to be declared in the global scope, so an array local to a
+        # control-flow body is declared there (uninitialised) and its initial store stays in place,
+        # lowered element by element.
+        global_scope = len(self.symbols.variables) == 1
         declared_vars = list(self.scope.circuit.iter_declared_vars())
         array_init_stores = {
             var: _declaring_array_store(self.scope.circuit, var)
             for var in declared_vars
-            if var.type.kind is types.Array
+            if var.type.kind is types.Array and global_scope
         }
         pending_array_inits = {
             var for var, instruction in array_init_stores.items() if instruction is not None
         }
         statements = []
         for var in declared_vars:
+            if var.type.kind is types.Array and not global_scope:
+                self._global_classical_forward_declarations.append(
+                    ast.ClassicalDeclaration(
+                        _build_ast_type(var.type),
+                        self.symbols.register_variable(
+                            var.name, var, allow_rename=True, force_global=True
+                        ),
+                    )
+                )
+                continue
             initializer = None
             init_instruction = array_init_stores.get(var)
             if init_instruction is not None:
-                initializer = self.build_expression(init_instruction.operation.rvalue)
+                initializer = _ExprBuilder(self._lookup_variable_for_expression).array_literal(
+                    init_instruction.operation.rvalue
+                )
             statements.append(
                 ast.ClassicalDeclaration(
                     _build_ast_type(var.type),
@@ -1610,10 +1626,20 @@ class _ExprBuilder(expr.ExprVisitor[ast.Expression]):
     def visit_stretch(self, node, /):
         return self.lookup(node)
 
+    def array_literal(self, node: expr.Value) -> ast.IndexSet:
+        """The ``{...}`` initializer of an array declaration."""
+        return ast.IndexSet(
+            [self.visit_value(expr.Value(elem, node.type.element)) for elem in node.value]
+        )
+
     def visit_value(self, node, /):
         if node.type.kind is types.Array:
-            return ast.IndexSet(
-                [self.visit_value(expr.Value(elem, node.type.element)) for elem in node.value]
+            # OpenQASM 3 only allows `{...}` as the initializer of an array declaration, which is
+            # built by `array_literal`; whole-array literal stores are lowered element by element.
+            raise QASM3ExporterError(
+                f"cannot export the array literal {node.value} inside an expression: OpenQASM 3"
+                " only allows array literals to initialize an array declaration. Store the literal"
+                " in an array variable (e.g. with `QuantumCircuit.add_var`) and use that instead."
             )
         if node.type.kind is types.Bool:
             return ast.BooleanLiteral(bool(node.value))

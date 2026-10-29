@@ -2195,6 +2195,42 @@ rx(theta[0]) q[0];
             dumps(qc, experimental=ExperimentalFeatures.PARAMETER_VECTORS_AS_ARRAYS), expected
         )
 
+    def test_array_literal_inside_expression_rejected(self):
+        """OpenQASM 3 only allows array literals as declaration initializers."""
+        qc = QuantumCircuit(1, 1)
+        u = qc.add_var("u", expr.lift(0, types.Uint(2)))
+        with qc.if_test(expr.equal(expr.index([1, 2, 3], u), 2)):
+            qc.x(0)
+        with self.assertRaisesRegex(QASM3ExporterError, "array literal .* inside an expression"):
+            dumps(qc)
+
+    def test_array_local_to_block_declared_globally(self):
+        """Arrays are declared in the global scope; a block's initial store stays in the block."""
+        qc = QuantumCircuit(1, 1)
+        with qc.if_test((qc.clbits[0], True)):
+            a = qc.add_var("a", [1, 2])
+            qc.store(expr.index(a, 0), 3)
+        with qc.while_loop((qc.clbits[0], True)):
+            qc.add_var("a", [True, False])  # same name in a sibling block: a distinct array
+        expected = """\
+OPENQASM 3.0;
+include "stdgates.inc";
+bit[1] c;
+array[uint[2], 2] a;
+array[bool, 2] a_0;
+qubit[1] q;
+if (c[0]) {
+  a[0] = 1;
+  a[1] = 2;
+  a[0] = 3;
+}
+while (c[0]) {
+  a_0[0] = true;
+  a_0[1] = false;
+}
+"""
+        self.assertEqual(dumps(qc), expected)
+
     def test_parameter_vector_default_is_scalar_inputs(self):
         """Without the experimental flag, each used element is its own scalar input."""
         theta = ParameterVector("theta", 4)

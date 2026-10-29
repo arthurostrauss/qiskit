@@ -166,6 +166,21 @@ impl From<QpyError> for PyErr {
 
 impl From<binrw::Error> for QpyError {
     fn from(err: binrw::Error) -> Self {
+        // A version error raised while writing a nested element (e.g. an array literal inside an
+        // expression) arrives wrapped by binrw. Keep its type, so that Python sees
+        // `UnsupportedFeatureForVersion` and `qpy.dump` can select the fork version.
+        if let Some(QpyError::UnsupportedFeatureForVersion {
+            feature,
+            version,
+            min_version,
+        }) = err.custom_err::<QpyError>()
+        {
+            return QpyError::UnsupportedFeatureForVersion {
+                feature: feature.clone(),
+                version: *version,
+                min_version: *min_version,
+            };
+        }
         QpyError::BinRwError(err.to_string())
     }
 }
@@ -183,5 +198,5 @@ pub fn to_binrw_error<W: std::io::Seek, E: std::error::Error + Send + Sync + 'st
 
 /// Helper function to convert binrw errors back to QpyError
 pub fn from_binrw_error(err: binrw::Error) -> QpyError {
-    QpyError::BinRwError(err.to_string())
+    QpyError::from(err)
 }

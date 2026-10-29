@@ -629,7 +629,7 @@ at the start of each :func:`.dump` call (e.g. ``"my_gate_0"``).
 Changes to EXPR_TYPE
 ~~~~~~~~~~~~~~~~~~~~
 
-Version 18 adds :class:`~.types.Array` as a classical expression type.  The encoding is a type
+``QPY_FORK_VERSION`` adds :class:`~.types.Array` as a classical expression type.  The encoding is a type
 code followed by a nested scalar ``EXPR_TYPE`` and the array length:
 
 =========================  =========  ==============================================================
@@ -655,7 +655,7 @@ Python type                  Type code  Payload
                                         ``EXPR_VALUE`` encodings.
 ===========================  =========  ============================================================
 
-Version 18 adds support for serializing and deserializing classical
+``QPY_FORK_VERSION`` adds support for serializing and deserializing classical
 :class:`~.expr.Range` expressions used as :class:`.ForLoopOp` indexsets.
 New Expression.RANGE classical-expression element
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -677,7 +677,7 @@ instruction's loop-parameter slot is written as ``Null``.  On read, the loop var
 re-inferred from the body circuit's lone ``input`` variable, so no dedicated instruction
 parameter element is needed.  This mechanism is independent of the QPY version (it reuses the
 existing body-circuit variable serialization), but the ``expr.Range`` indexset it is paired with
-requires version 18 as described above.
+requires ``QPY_FORK_VERSION`` as described above.
 
 .. _qpy_version_17:
 
