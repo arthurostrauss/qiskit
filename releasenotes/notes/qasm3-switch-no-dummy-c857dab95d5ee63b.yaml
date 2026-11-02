@@ -1,0 +1,13 @@
+---
+upgrade_qasm:
+  - |
+    The OpenQASM 3 exporter (:func:`.qasm3.dumps` and :func:`.qasm3.dump`) no longer declares a
+    global ``int switch_dummy`` variable for every :class:`.SwitchCaseOp` and assigns the target to
+    it before the ``switch``.  The target is now written directly in the ``switch`` header.
+    OpenQASM 3 requires an integer switch target, so targets that would be exported as ``bit``,
+    ``bool`` or ``bit[n]`` (for example a :class:`.Clbit` or a :class:`.ClassicalRegister`) are
+    wrapped in an explicit ``uint[n](...)`` cast.  Targets that are already ``uint`` (standalone
+    :class:`~.expr.Var` nodes, explicit casts, or elements of a ``Uint`` array) are written
+    unchanged.  For example, a switch on a two-bit register ``c`` is now exported as
+    ``switch (uint[2](c)) { ... }``.  This applies to both the stable syntax and the
+    :attr:`.ExperimentalFeatures.SWITCH_CASE_V1` syntax.

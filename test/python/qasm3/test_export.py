@@ -2330,7 +2330,6 @@ OPENQASM 3.0;
 include "stdgates.inc";
 input bool a;
 bit[2] c;
-int switch_dummy;
 qubit[2] q;
 uint[16] b;
 b = 5;
@@ -2345,8 +2344,7 @@ while (a) {
   bool b;
   b = a;
 }
-switch_dummy = b;
-switch (switch_dummy) {
+switch (b) {
   case 0 {
     b = 3;
   }
@@ -2435,10 +2433,8 @@ U(0.5, 0.125, 0.25) q[0];
 OPENQASM 3.0;
 include "stdgates.inc";
 bit _bit0;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = _bit0;
-switch (switch_dummy) {
+switch (uint[1](_bit0)) {
   case 1 {
     x _qubit0;
   }
@@ -2469,10 +2465,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = c;
-switch (switch_dummy) {
+switch (uint[2](c)) {
   case 0 {
     x _qubit0;
   }
@@ -2506,10 +2500,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = c;
-switch (switch_dummy) {
+switch (uint[2](c)) {
   case 0 {
     x _qubit0;
   }
@@ -2541,10 +2533,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = c;
-switch (switch_dummy) {
+switch (uint[2](c)) {
   case 0 {
     x _qubit0;
   }
@@ -2555,9 +2545,9 @@ switch (switch_dummy) {
 """
         self.assertEqual(test, expected)
 
-    def test_multiple_switches_dont_clash_on_dummy(self):
-        """Test that having more than one switch statement in the circuit doesn't cause naming
-        clashes in the dummy integer value used."""
+    def test_multiple_switches_need_no_declarations(self):
+        """Test that more than one switch statement in the circuit doesn't introduce any extra
+        declarations, and that a user symbol called ``switch_dummy`` keeps its name."""
         qubit = Qubit()
         creg = ClassicalRegister(2, "switch_dummy")
         case1 = QuantumCircuit([qubit], creg)
@@ -2574,11 +2564,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] switch_dummy;
-int switch_dummy_0;
-int switch_dummy_1;
 qubit _qubit0;
-switch_dummy_0 = switch_dummy;
-switch (switch_dummy_0) {
+switch (uint[2](switch_dummy)) {
   case 0 {
     x _qubit0;
   }
@@ -2586,8 +2573,7 @@ switch (switch_dummy_0) {
     y _qubit0;
   }
 }
-switch_dummy_1 = switch_dummy;
-switch (switch_dummy_1) {
+switch (uint[2](switch_dummy)) {
   case 0 {
     x _qubit0;
   }
@@ -2599,10 +2585,8 @@ switch (switch_dummy_1) {
         self.assertEqual(test, expected)
 
     def test_switch_nested_in_if(self):
-        """Test that the switch statement works when in a nested scope, including the dummy
-        classical variable being declared globally.  This isn't necessary in the OQ3 language, but
-        it is universally valid and the IBM QSS stack prefers that.  They're our primary consumers
-        of OQ3 strings, so it's best to play nicely with them."""
+        """Test that the switch statement works when in a nested scope, with its target written
+        inline."""
         qubit = Qubit()
         creg = ClassicalRegister(2, "c")
         case1 = QuantumCircuit([qubit], creg)
@@ -2621,12 +2605,9 @@ switch (switch_dummy_1) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
-int switch_dummy_0;
 qubit _qubit0;
 if (c == 1) {
-  switch_dummy = c;
-  switch (switch_dummy) {
+  switch (uint[2](c)) {
     case 0 {
       x _qubit0;
     }
@@ -2635,8 +2616,7 @@ if (c == 1) {
     }
   }
 } else {
-  switch_dummy_0 = c;
-  switch (switch_dummy_0) {
+  switch (uint[2](c)) {
     case 0 {
       x _qubit0;
     }
@@ -2665,17 +2645,13 @@ OPENQASM 3.0;
 include "stdgates.inc";
 bit _bit0;
 bit[2] cr;
-int switch_dummy;
-int switch_dummy_0;
 qubit _qubit0;
-switch_dummy = !_bit0;
-switch (switch_dummy) {
+switch (uint[1](!_bit0)) {
   case 0 {
     x _qubit0;
   }
 }
-switch_dummy_0 = cr & 3;
-switch (switch_dummy_0) {
+switch (uint[2](cr & 3)) {
   case 3 {
     x _qubit0;
   }
@@ -2683,6 +2659,86 @@ switch (switch_dummy_0) {
 """
         test = dumps(qc)
         self.assertEqual(test, expected)
+
+    def test_switch_target_cast_only_when_needed(self):
+        """Test that switch targets that are already ``uint`` in OpenQASM 3 aren't cast, while
+        ``bit``-like targets get a single ``uint[n]`` cast."""
+        cr = ClassicalRegister(2, "cr")
+        arr = expr.Var.new("arr", types.Array(types.Uint(3), 4))
+        qc = QuantumCircuit([Qubit()], cr, inputs=[arr])
+        u = qc.add_var("u", expr.lift(5, types.Uint(3)))
+        with qc.switch(u) as case:
+            with case(5):
+                qc.x(0)
+        with qc.switch(expr.index(arr, 1)) as case:
+            with case(2):
+                qc.y(0)
+        with qc.switch(expr.cast(cr, types.Uint(2))) as case:
+            with case(3):
+                qc.z(0)
+        with qc.switch(expr.index(cr, 0)) as case:
+            with case(True):
+                qc.x(0)
+
+        expected = """\
+OPENQASM 3.0;
+include "stdgates.inc";
+input array[uint[3], 4] arr;
+bit[2] cr;
+qubit _qubit0;
+uint[3] u;
+u = 5;
+switch (u) {
+  case 5 {
+    x _qubit0;
+  }
+}
+switch (arr[1]) {
+  case 2 {
+    y _qubit0;
+  }
+}
+switch (uint[2](cr)) {
+  case 3 {
+    z _qubit0;
+  }
+}
+switch (uint[1](cr[0])) {
+  case 1 {
+    x _qubit0;
+  }
+}
+"""
+        self.assertEqual(dumps(qc), expected)
+
+    def test_switch_nested_in_while(self):
+        """Test that a switch inside a loop body has its target written inline in the body."""
+        cr = ClassicalRegister(2, "cr")
+        qc = QuantumCircuit([Qubit()], cr)
+        with qc.while_loop((cr, 0)):
+            with qc.switch(cr) as case:
+                with case(0):
+                    qc.x(0)
+                with case(case.DEFAULT):
+                    qc.measure(0, cr[0])
+
+        expected = """\
+OPENQASM 3.0;
+include "stdgates.inc";
+bit[2] cr;
+qubit _qubit0;
+while (cr == 0) {
+  switch (uint[2](cr)) {
+    case 0 {
+      x _qubit0;
+    }
+    default {
+      cr[0] = measure _qubit0;
+    }
+  }
+}
+"""
+        self.assertEqual(dumps(qc), expected)
 
     def test_simple_defcal(self):
         """Test dumping custom non-unitary instructions using implicit defcals."""
@@ -2820,10 +2876,8 @@ class TestExperimentalFeatures(QiskitTestCase):
 OPENQASM 3.0;
 include "stdgates.inc";
 bit _bit0;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = _bit0;
-switch (switch_dummy) {
+switch (uint[1](_bit0)) {
   case 1: {
     x _qubit0;
   }
@@ -2856,10 +2910,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = c;
-switch (switch_dummy) {
+switch (uint[2](c)) {
   case 0: {
     x _qubit0;
   }
@@ -2896,10 +2948,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = c;
-switch (switch_dummy) {
+switch (uint[2](c)) {
   case 0: {
     x _qubit0;
   }
@@ -2934,10 +2984,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
 qubit _qubit0;
-switch_dummy = c;
-switch (switch_dummy) {
+switch (uint[2](c)) {
   case 0: {
     x _qubit0;
   }
@@ -2951,9 +2999,9 @@ switch (switch_dummy) {
 """
         self.assertEqual(test, expected)
 
-    def test_multiple_switches_dont_clash_on_dummy(self):
-        """Test that having more than one prerelease switch statement in the circuit doesn't cause
-        naming clashes in the dummy integer value used."""
+    def test_multiple_switches_need_no_declarations(self):
+        """Test that more than one prerelease switch statement in the circuit doesn't introduce any
+        extra declarations, and that a user symbol called ``switch_dummy`` keeps its name."""
         qubit = Qubit()
         creg = ClassicalRegister(2, "switch_dummy")
         case1 = QuantumCircuit([qubit], creg)
@@ -2970,11 +3018,8 @@ switch (switch_dummy) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] switch_dummy;
-int switch_dummy_0;
-int switch_dummy_1;
 qubit _qubit0;
-switch_dummy_0 = switch_dummy;
-switch (switch_dummy_0) {
+switch (uint[2](switch_dummy)) {
   case 0: {
     x _qubit0;
   }
@@ -2985,8 +3030,7 @@ switch (switch_dummy_0) {
   }
   break;
 }
-switch_dummy_1 = switch_dummy;
-switch (switch_dummy_1) {
+switch (uint[2](switch_dummy)) {
   case 0: {
     x _qubit0;
   }
@@ -3001,10 +3045,8 @@ switch (switch_dummy_1) {
         self.assertEqual(test, expected)
 
     def test_switch_v1_nested_in_if(self):
-        """Test that the switch statement works when in a nested scope, including the dummy
-        classical variable being declared globally.  This isn't necessary in the OQ3 language, but
-        it is universally valid and the IBM QSS stack prefers that.  They're our primary consumers
-        of OQ3 strings, so it's best to play nicely with them."""
+        """Test that the switch statement works when in a nested scope, with its target written
+        inline."""
         qubit = Qubit()
         creg = ClassicalRegister(2, "c")
         case1 = QuantumCircuit([qubit], creg)
@@ -3023,12 +3065,9 @@ switch (switch_dummy_1) {
 OPENQASM 3.0;
 include "stdgates.inc";
 bit[2] c;
-int switch_dummy;
-int switch_dummy_0;
 qubit _qubit0;
 if (c == 1) {
-  switch_dummy = c;
-  switch (switch_dummy) {
+  switch (uint[2](c)) {
     case 0: {
       x _qubit0;
     }
@@ -3040,8 +3079,7 @@ if (c == 1) {
     break;
   }
 } else {
-  switch_dummy_0 = c;
-  switch (switch_dummy_0) {
+  switch (uint[2](c)) {
     case 0: {
       x _qubit0;
     }
@@ -3073,18 +3111,14 @@ OPENQASM 3.0;
 include "stdgates.inc";
 bit _bit0;
 bit[2] cr;
-int switch_dummy;
-int switch_dummy_0;
 qubit _qubit0;
-switch_dummy = !_bit0;
-switch (switch_dummy) {
+switch (uint[1](!_bit0)) {
   case 0: {
     x _qubit0;
   }
   break;
 }
-switch_dummy_0 = cr & 3;
-switch (switch_dummy_0) {
+switch (uint[2](cr & 3)) {
   case 3: {
     x _qubit0;
   }
@@ -3126,6 +3160,17 @@ class TestQASM3ExporterFailurePaths(QiskitTestCase):
         exporter = Exporter(alias_classical_registers=False)
         with self.assertRaisesRegex(QASM3ExporterError, r"classical registers .* overlap"):
             exporter.dumps(qc)
+
+    def test_disallow_non_integer_switch_target(self):
+        """Test that the exporter rejects a switch whose target can't be made an integer.  The
+        `SwitchCaseOp` constructor forbids this, so the target is swapped in afterwards."""
+        case = QuantumCircuit(1)
+        case.x(0)
+        qc = QuantumCircuit(1, 1)
+        qc.switch(qc.clbits[0], [(True, case)], [0], [])
+        qc.data[-1].operation.target = expr.lift(1.5)
+        with self.assertRaisesRegex(QASM3ExporterError, "integer-typed switch target"):
+            dumps(qc)
 
     def test_disallow_custom_subroutine_with_parameters(self):
         """Test that the exporter throws an error instead of trying to export a subroutine with

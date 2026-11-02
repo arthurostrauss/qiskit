@@ -806,9 +806,9 @@ class QASM3Builder:
         quantum_declarations = self.build_quantum_declarations()
 
         # This call has side-effects - it can populate `self._global_io_declarations` and
-        # `self._global_classical_declarations` as a courtesy to the qe-compiler that prefers our
-        # hacky temporary `switch` target variables to be globally defined.  It also populates the
-        # symbol table with encountered gates that weren't previously defined.
+        # `self._global_classical_forward_declarations` with variables that must be declared
+        # globally.  It also populates the symbol table with encountered gates that weren't
+        # previously defined.
         main_statements = self.build_current_scope()
 
         statements = [
@@ -1233,13 +1233,7 @@ class QASM3Builder:
 
     def build_switch_statement(self, instruction: CircuitInstruction) -> Iterable[ast.Statement]:
         """Build a :obj:`.SwitchCaseOp` into a :class:`.ast.SwitchStatement`."""
-        real_target = self.build_expression(expr.lift(instruction.operation.target))
-        target = self.symbols.register_variable(
-            "switch_dummy", None, allow_rename=True, force_global=True
-        )
-        self._global_classical_forward_declarations.append(
-            ast.ClassicalDeclaration(ast.IntType(), target, None)
-        )
+        target = self.build_switch_target(instruction.operation.target)
 
         if ExperimentalFeatures.SWITCH_CASE_V1 in self.experimental:
             # In this case, defaults can be folded in with other cases (useless as that is).
@@ -1254,7 +1248,6 @@ class QASM3Builder:
                 return values, case_body
 
             return [
-                ast.AssignmentStatement(target, real_target),
                 ast.SwitchStatementPreview(
                     target,
                     (
@@ -1278,10 +1271,28 @@ class QASM3Builder:
                 continue
             cases.append(([self.build_integer(value) for value in values], case_body))
 
-        return [
-            ast.AssignmentStatement(target, real_target),
-            ast.SwitchStatement(target, cases, default=default),
-        ]
+        return [ast.SwitchStatement(target, cases, default=default)]
+
+    def build_switch_target(self, target: Clbit | Register | expr.Expr) -> ast.Expression:
+        """Build the target of a :obj:`.SwitchCaseOp` as an integer-typed OpenQASM 3 expression.
+
+        OpenQASM 3 requires the target of a ``switch`` to be an integer, but Qiskit's ``Bool`` and
+        ``Uint`` targets can lower to ``bit``, ``bool`` or ``bit[n]``, so these get an explicit
+        ``uint[n]`` cast.  Expressions that are already ``uint`` in OpenQASM 3 are left alone."""
+        target = expr.lift(target)
+        if target.type.kind is types.Bool:
+            width = 1
+        elif target.type.kind is types.Uint:
+            width = target.type.width
+        else:
+            raise QASM3ExporterError(
+                f"cannot export a switch on a target of type '{target.type}':"
+                " OpenQASM 3 requires an integer-typed switch target"
+            )
+        built = self.build_expression(target)
+        if _is_oq3_uint(target):
+            return built
+        return ast.Cast(_build_ast_type(types.Uint(width)), built)
 
     def build_box(self, instruction: CircuitInstruction) -> ast.BoxStatement:
         """Build a :class:`.BoxOp` into a :class:`.ast.BoxStatement`."""
@@ -1562,6 +1573,25 @@ def _build_ast_type(type_: types.Type) -> ast.ClassicalType:
     if type_.kind is types.Array:
         return ast.ArrayType(_build_ast_type(type_.element), (type_.size,))
     raise RuntimeError(f"unhandled expr type '{type_}'")
+
+
+def _is_oq3_uint(node: expr.Expr) -> bool:
+    """Whether ``node`` is certain to be exported as an OpenQASM 3 ``uint``.
+
+    Standalone ``Uint`` variables are declared as ``uint[n]``, but those backed by a
+    :class:`.ClassicalRegister` are ``bit[n]``.  This is deliberately conservative: a ``False``
+    only costs a redundant cast."""
+    if node.type.kind is not types.Uint:
+        return False
+    if isinstance(node, expr.Var):
+        return node.standalone
+    if isinstance(node, expr.Cast):
+        return not node.implicit
+    if isinstance(node, expr.Index):
+        # Arrays are declared with the element type from `_build_ast_type`, so `Uint` elements of
+        # an array are `uint[n]`.
+        return node.target.type.kind is types.Array
+    return False
 
 
 def _declaring_array_store(circuit: QuantumCircuit, var: expr.Var):
