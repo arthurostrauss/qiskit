@@ -1118,7 +1118,7 @@ pub unsafe extern "C" fn qk_stretch_name(stretch: *const Stretch) -> *mut c_char
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qk_var_array_type_info(var: *const Var) -> CArrayTypeInfo {
     // SAFETY: Per documentation, the pointer is non-null and aligned.
-    let var = unsafe { const_ptr_as_ref(var) };
+    let var = unsafe { &*var };
     let ty = match var {
         Var::Standalone { ty, .. } | Var::Register { ty, .. } => ty,
         Var::Bit { .. } => panic!("qk_var_array_type_info called on a non-array var"),
@@ -1146,7 +1146,7 @@ pub unsafe extern "C" fn qk_var_array_type_info(var: *const Var) -> CArrayTypeIn
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qk_value_array_type_info(value: *const Value) -> CArrayTypeInfo {
     // SAFETY: Per documentation, the pointer is non-null and aligned.
-    let value = unsafe { const_ptr_as_ref(value) };
+    let value = unsafe { &*value };
     let Value::Array { ty, .. } = value else {
         panic!("qk_value_array_type_info called on a non-array value")
     };
@@ -1173,7 +1173,7 @@ pub unsafe extern "C" fn qk_value_array_type_info(value: *const Value) -> CArray
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qk_value_array_len(value: *const Value) -> u32 {
     // SAFETY: Per documentation, the pointer is non-null and aligned.
-    let value = unsafe { const_ptr_as_ref(value) };
+    let value = unsafe { &*value };
     let Value::Array { elems, .. } = value else {
         panic!("qk_value_array_len called on a non-array value")
     };
@@ -1202,7 +1202,7 @@ pub unsafe extern "C" fn qk_value_array_len(value: *const Value) -> u32 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qk_value_array_element(value: *const Value, index: u32) -> *const Value {
     // SAFETY: Per documentation, the pointer is non-null and aligned.
-    let value = unsafe { const_ptr_as_ref(value) };
+    let value = unsafe { &*value };
     let Value::Array { elems, .. } = value else {
         panic!("qk_value_array_element called on a non-array value")
     };
