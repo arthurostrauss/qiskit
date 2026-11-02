@@ -48,6 +48,9 @@ Data Types
 .. doxygenstruct:: QkDurationInfo
     :members:
 
+.. doxygenstruct:: QkBigUint
+    :members:
+
 
 Functions
 =========
