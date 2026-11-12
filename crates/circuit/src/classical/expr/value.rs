@@ -10,13 +10,18 @@
 // copyright notice, and modified files need to carry a notice indicating
 // that they have been altered from the originals.
 
+#[cfg(feature = "py")]
 use crate::classical::expr::{ExprKind, PyExpr};
 use crate::classical::types::Type;
 use crate::duration::Duration;
 use num_bigint::BigUint;
+#[cfg(feature = "py")]
 use pyo3::exceptions::{PyTypeError, PyValueError};
+#[cfg(feature = "py")]
 use pyo3::prelude::*;
+#[cfg(feature = "py")]
 use pyo3::types::{PyList, PyTuple};
+#[cfg(feature = "py")]
 use pyo3::{IntoPyObjectExt, intern};
 
 /// A single scalar or 1-D array value expression.
@@ -30,6 +35,7 @@ pub enum Value {
 
 impl Value {
     /// Construct a [`Value`] from a Python object and a resolved type.
+    #[cfg(feature = "py")]
     fn from_py(value: &Bound<PyAny>, ty: Type) -> PyResult<Self> {
         match ty {
             Type::Array { size, .. } => {
@@ -66,6 +72,7 @@ impl Value {
 
     /// Construct an array element, storing its payload as the element type dictates (so that,
     /// for example, ``1`` in an ``Array(Float(), n)`` is held as the float ``1.0``).
+    #[cfg(feature = "py")]
     fn element_from_py(value: &Bound<PyAny>, ty: Type) -> PyResult<Self> {
         let mismatch = || {
             PyTypeError::new_err(format!(
@@ -98,6 +105,7 @@ impl Value {
         }
     }
 
+    #[cfg(feature = "py")]
     fn payload_into_py(&self, py: Python) -> PyResult<Py<PyAny>> {
         match self {
             Value::Duration(d) => d.into_py_any(py),
@@ -121,6 +129,7 @@ impl Value {
     }
 }
 
+#[cfg(feature = "py")]
 fn format_type(ty: Type) -> String {
     match ty {
         Type::Bool => "Bool()".to_string(),
@@ -138,6 +147,7 @@ fn format_type(ty: Type) -> String {
     }
 }
 
+#[cfg(feature = "py")]
 impl<'py> IntoPyObject<'py> for Value {
     type Target = PyAny;
     type Output = Bound<'py, PyAny>;
@@ -148,6 +158,7 @@ impl<'py> IntoPyObject<'py> for Value {
     }
 }
 
+#[cfg(feature = "py")]
 impl<'a, 'py> FromPyObject<'a, 'py> for Value {
     type Error = <PyValue as FromPyObject<'a, 'py>>::Error;
 
@@ -158,6 +169,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Value {
 }
 
 /// A single scalar or 1-D array value.
+#[cfg(feature = "py")]
 #[pyclass(
     eq,
     extends = PyExpr,
@@ -168,6 +180,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Value {
 #[derive(PartialEq, Clone, Debug)]
 pub struct PyValue(Value);
 
+#[cfg(feature = "py")]
 #[pymethods]
 impl PyValue {
     #[new]

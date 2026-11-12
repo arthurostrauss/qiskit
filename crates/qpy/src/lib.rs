@@ -45,6 +45,12 @@ pub const QPY_WRITE_MIN_VERSION: u8 = 17;
 /// It contains every feature of version 18; reconcile it when merging a newer upstream version.
 pub const QPY_FORK_VERSION: u8 = 200;
 
+#[cfg(target_os = "windows")]
+const NATIVE_QPY_RECURSION_DEPTH: usize = 30;
+
+#[cfg(not(target_os = "windows"))]
+const NATIVE_QPY_RECURSION_DEPTH: usize = 100;
+
 /// Internal module supplying the QPY capabilities.  The entries in it should largely
 /// be re-exposed directly to public Python space.
 pub fn qpy(module: &Bound<PyModule>) -> PyResult<()> {
